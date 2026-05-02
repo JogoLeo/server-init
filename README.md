@@ -46,7 +46,7 @@ sudo bash server-init.sh
 
 ```bash
 # 下载脚本
-wget https://gh-proxy.org/https://github.com/JogoLeo/server-init/raw/refs/heads/main/server-init.sh
+wget https://gh-proxy.org/https://raw.githubusercontent.com/JogoLeo/server-init/main/server-init.sh
 
 # 添加执行权限
 chmod +x server-init.sh
@@ -58,13 +58,13 @@ sudo bash server-init.sh
 ### 3.curl运行
 
 ```bash
-bash <(curl -sL https://gh-proxy.org/https://github.com/JogoLeo/server-init/raw/refs/heads/main/server-init.sh)
+bash <(curl -sL https://gh-proxy.org/https://raw.githubusercontent.com/JogoLeo/server-init/main/server-init.sh)
 ```
 
 ### 4.wget运行
 
 ```bash
-bash <(wget -qO- https://gh-proxy.org/https://github.com/JogoLeo/server-init/raw/refs/heads/main/server-init.sh)
+bash <(wget -qO- https://gh-proxy.org/https://raw.githubusercontent.com/JogoLeo/server-init/main/server-init.sh)
 ```
 ## 功能详细说明
 
