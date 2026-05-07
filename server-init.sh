@@ -1,13 +1,13 @@
 #!/bin/bash
-set -euo pipefail
+set -uo pipefail
 
 # ============================================================================
 # JO-SI Server Init - Ubuntu 服务器初始配置脚本
-# Version: 1.0.1
+# Version: 1.1.0
 # Repository: https://github.com/JogoLeo/server-init
 # ============================================================================
 
-VERSION="1.0.2"
+SCRIPT_VERSION="1.1.0"
 REPO_URL="https://github.com/JogoLeo/server-init"
 LOG_FILE="/var/log/server-init.log"
 
@@ -109,7 +109,7 @@ EOF
     echo -e "${NC}"
     echo -e "${WHITE}  ╔═══════════════════════════════════════════════════╗${NC}"
     echo -e "${WHITE}  ║${NC}  ${CYAN}Ubuntu 服务器初始配置脚本${NC}                       ${WHITE}║${NC}"
-    echo -e "${WHITE}  ║${NC}  ${GRAY}Version: $VERSION${NC}                                 ${WHITE}║${NC}"
+    echo -e "${WHITE}  ║${NC}  ${GRAY}Version: $SCRIPT_VERSION${NC}                                 ${WHITE}║${NC}"
     echo -e "${WHITE}  ║${NC}  ${GRAY}GitHub: $REPO_URL${NC}  ${WHITE}║${NC}"
     echo -e "${WHITE}  ╚═══════════════════════════════════════════════════╝${NC}"
     echo ""
@@ -160,8 +160,8 @@ show_system_info() {
     if [[ -z "${PUBLIC_IP_V4:-}" ]]; then
         echo ""
         echo -ne "  ${GRAY}获取公网 IP 中...${NC}"
-        PUBLIC_IP_V4=$(curl -s --connect-timeout 5 --max-time 10 https://ip.sb 2>/dev/null || echo "未获取到")
-        PUBLIC_IP_V6=$(curl -s --connect-timeout 5 --max-time 10 -6 https://ip.sb 2>/dev/null || echo "未获取到")
+        PUBLIC_IP_V4=$(curl -s --connect-timeout 5 --max-time 10 https://ipv4.ip.sb 2>/dev/null || echo "未获取到")
+        PUBLIC_IP_V6=$(curl -s --connect-timeout 5 --max-time 10 https://ipv6.ip.sb 2>/dev/null || echo "未获取到")
         echo -e "\r                                                          "
     fi
     printf "  ${GRAY}公网 IPv4:${NC}       ${WHITE}%-30s${NC}\n" "$PUBLIC_IP_V4"
@@ -355,6 +355,22 @@ harden_ssh() {
     touch /root/.ssh/authorized_keys
     chmod 600 /root/.ssh/authorized_keys
 
+    # 辅助函数：添加公钥前检查重复
+    _add_ssh_key() {
+        local key="$1"
+        # 提取 key 部分（去掉注释）进行比较
+        local key_part
+        key_part=$(echo "$key" | awk '{print $1" "$2}')
+        if grep -qF "$key_part" /root/.ssh/authorized_keys 2>/dev/null; then
+            log_warn "公钥已存在，跳过添加: ${key:0:30}..."
+            echo -e "${YELLOW}公钥已存在，跳过${NC}"
+        else
+            echo "$key" >> /root/.ssh/authorized_keys
+            log_info "已添加公钥: ${key:0:30}..."
+            echo -e "${GREEN}公钥已添加${NC}"
+        fi
+    }
+
     case "$key_choice" in
         1)
             # 自动生成密钥对
@@ -385,9 +401,7 @@ harden_ssh() {
             while true; do
                 read -r -p "公钥: " pubkey
                 [[ -z "$pubkey" ]] && break
-                echo "$pubkey" >> /root/.ssh/authorized_keys
-                log_info "已添加公钥: ${pubkey:0:30}..."
-                echo -e "${GREEN}公钥已添加${NC}"
+                _add_ssh_key "$pubkey"
             done
             ;;
         3)
@@ -413,9 +427,7 @@ harden_ssh() {
     while true; do
         read -r -p "公钥: " pubkey
         [[ -z "$pubkey" ]] && break
-        echo "$pubkey" >> /root/.ssh/authorized_keys
-        log_info "已添加公钥: ${pubkey:0:30}..."
-        echo -e "${GREEN}公钥已添加${NC}"
+        _add_ssh_key "$pubkey"
     done
 
     # 修改 SSH 配置
@@ -775,10 +787,11 @@ net.ipv4.tcp_slow_start_after_idle = 0"
     local CC="bbr"
     local QDISC="fq"
     local KVER
-    KVER=$(uname -r | grep -oP '^\d+\.\d+')
+    KVER=$(uname -r | grep -oE '^[0-9]+\.[0-9]+')
     if printf '%s\n%s' "4.9" "$KVER" | sort -V -C; then
-        if ! lsmod 2>/dev/null | grep -q tcp_bbr; then
-            modprobe tcp_bbr 2>/dev/null
+        # 先检查 BBR 是否已经可用（可能内置在内核中）
+        if ! sysctl net.ipv4.tcp_available_congestion_control 2>/dev/null | grep -q bbr; then
+            modprobe tcp_bbr 2>/dev/null || true
         fi
         if ! sysctl net.ipv4.tcp_available_congestion_control 2>/dev/null | grep -q bbr; then
             CC="cubic"
@@ -1014,7 +1027,7 @@ enable_bbr_fq() {
 
     # 检测内核版本
     local kver
-    kver=$(uname -r | grep -oP '^\d+\.\d+')
+    kver=$(uname -r | grep -oE '^[0-9]+\.[0-9]+')
 
     if ! printf '%s\n%s' "4.9" "$kver" | sort -V -C; then
         log_error "当前内核版本 $kver 过低，BBR 需要 4.9 或更高版本"
@@ -1034,17 +1047,17 @@ enable_bbr_fq() {
     echo -e "  队列调度算法: ${GREEN}${current_qdisc}${NC}"
     echo ""
 
-    # 检查 BBR 模块
-    if ! lsmod 2>/dev/null | grep -q tcp_bbr; then
+    # 先检查 BBR 是否已经可用（可能内置在内核中）
+    if ! sysctl net.ipv4.tcp_available_congestion_control 2>/dev/null | grep -q bbr; then
+        # BBR 不在可用列表中，尝试加载模块
         log_info "加载 tcp_bbr 模块..."
         modprobe tcp_bbr 2>/dev/null || true
-    fi
-
-    # 检查 BBR 是否可用
-    if ! sysctl net.ipv4.tcp_available_congestion_control 2>/dev/null | grep -q bbr; then
-        log_error "BBR 不可用"
-        echo -e "${RED}BBR 模块不可用，请检查内核是否编译了 BBR 支持${NC}"
-        return 1
+        # 再次检查
+        if ! sysctl net.ipv4.tcp_available_congestion_control 2>/dev/null | grep -q bbr; then
+            log_error "BBR 不可用"
+            echo -e "${RED}BBR 模块不可用，请检查内核是否编译了 BBR 支持${NC}"
+            return 1
+        fi
     fi
 
     # 备份当前配置
@@ -1518,7 +1531,7 @@ DOCKER
 show_version() {
     echo ""
     echo -e "${CYAN}══════════════════════════════════════════════════════════${NC}"
-    echo -e "${WHITE}  当前版本: ${GREEN}v${VERSION}${NC}"
+    echo -e "${WHITE}  当前版本: ${GREEN}v${SCRIPT_VERSION}${NC}"
     echo -e "${WHITE}  仓库地址: ${CYAN}${REPO_URL}${NC}"
     echo -e "${CYAN}══════════════════════════════════════════════════════════${NC}"
 }
@@ -1529,7 +1542,7 @@ check_update() {
 
     # 获取最新版本
     local latest_version
-    latest_version=$(curl -sL "https://raw.githubusercontent.com/JogoLeo/server-init/main/server-init.sh" 2>/dev/null | grep '^VERSION=' | head -1 | cut -d'"' -f2)
+    latest_version=$(curl -sL "https://raw.githubusercontent.com/JogoLeo/server-init/main/server-init.sh" 2>/dev/null | grep '^SCRIPT_VERSION=' | head -1 | cut -d'"' -f2)
 
     if [[ -z "$latest_version" ]]; then
         log_warn "无法获取最新版本信息，请检查网络连接"
@@ -1537,10 +1550,10 @@ check_update() {
         return 1
     fi
 
-    echo -e "  当前版本: ${GREEN}v${VERSION}${NC}"
+    echo -e "  当前版本: ${GREEN}v${SCRIPT_VERSION}${NC}"
     echo -e "  最新版本: ${GREEN}v${latest_version}${NC}"
 
-    if [[ "$latest_version" != "$VERSION" ]]; then
+    if [[ "$latest_version" != "$SCRIPT_VERSION" ]]; then
         echo ""
         if confirm "发现新版本 v${latest_version}，是否更新？"; then
             log_info "正在下载最新版本..."
@@ -1671,7 +1684,7 @@ main() {
     # 初始化日志
     mkdir -p /var/log
     touch "$LOG_FILE"
-    log_info "脚本启动，版本: $VERSION"
+    log_info "脚本启动，版本: $SCRIPT_VERSION"
 
     # 检测系统版本
     detect_ubuntu_version
