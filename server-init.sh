@@ -1542,7 +1542,7 @@ check_update() {
 
     # 获取最新版本
     local latest_version
-    latest_version=$(curl -sL "https://raw.githubusercontent.com/JogoLeo/server-init/main/server-init.sh" 2>/dev/null | grep '^SCRIPT_VERSION=' | head -1 | cut -d'"' -f2)
+    latest_version=$(curl -sL "https://gh-proxy.org/https://raw.githubusercontent.com/JogoLeo/server-init/main/server-init.sh" 2>/dev/null | grep '^SCRIPT_VERSION=' | head -1 | cut -d'"' -f2)
 
     if [[ -z "$latest_version" ]]; then
         log_warn "无法获取最新版本信息，请检查网络连接"
