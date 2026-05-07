@@ -108,9 +108,9 @@ show_logo() {
 EOF
     echo -e "${NC}"
     echo -e "${WHITE}  ╔═══════════════════════════════════════════════════╗${NC}"
-    echo -e "${WHITE}  ║${NC}  ${CYAN}Ubuntu 服务器初始配置脚本${NC}                       ${WHITE}║${NC}"
-    echo -e "${WHITE}  ║${NC}  ${GRAY}Version: $SCRIPT_VERSION${NC}                                 ${WHITE}║${NC}"
-    echo -e "${WHITE}  ║${NC}  ${GRAY}GitHub: $REPO_URL${NC}  ${WHITE}║${NC}"
+    echo -e "${WHITE}  ║${NC}  ${CYAN}Ubuntu 服务器初始配置脚本${NC}                        ${WHITE}║${NC}"
+    echo -e "${WHITE}  ║${NC}  ${GRAY}Version: $SCRIPT_VERSION${NC}                                   ${WHITE}║${NC}"
+    echo -e "${WHITE}  ║${NC}  ${GRAY}GitHub: $REPO_URL${NC}   ${WHITE}║${NC}"
     echo -e "${WHITE}  ╚═══════════════════════════════════════════════════╝${NC}"
     echo ""
 }
@@ -1563,7 +1563,7 @@ check_update() {
             cp "$script_path" "$backup_path"
             log_info "已备份当前版本到: $backup_path"
 
-            curl -sL "https://raw.githubusercontent.com/JogoLeo/server-init/main/server-init.sh" -o "$script_path"
+            curl -sL "https://gh-proxy.org/https://raw.githubusercontent.com/JogoLeo/server-init/main/server-init.sh" -o "$script_path"
             chmod +x "$script_path"
             log_success "更新完成，请重新运行脚本"
             echo -e "${GREEN}更新完成！请重新运行脚本以使用新版本${NC}"
