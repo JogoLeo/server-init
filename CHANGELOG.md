@@ -8,6 +8,7 @@ All notable changes to this project will be documented in this file.
 
 - **脚本框架**：移除 `set -e`，避免命令失败时直接退出脚本
 - **版本显示**：修复 `source /etc/os-release` 覆盖脚本 `VERSION` 变量导致版本显示为系统版本的问题（变量重命名为 `SCRIPT_VERSION`）
+- **版本检查**：修复更新检查和脚本下载未使用 `gh-proxy.org` 代理导致国内无法访问的问题
 - **BBR + FQ 加速**：优化 BBR 检测逻辑，优先检查内置模块支持，兼容 `grep -oP` 不可用的环境
 - **SSH 登录管理**：添加公钥前检查是否已存在，避免重复公钥导致 xshell 无法登录
 - **SSH 登录管理**：修复 `>=` 运算符在 bash `[[ ]]` 条件表达式中不合法导致的语法错误
