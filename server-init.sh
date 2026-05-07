@@ -7,7 +7,7 @@ set -euo pipefail
 # Repository: https://github.com/JogoLeo/server-init
 # ============================================================================
 
-VERSION="1.0.1"
+VERSION="1.0.2"
 REPO_URL="https://github.com/JogoLeo/server-init"
 LOG_FILE="/var/log/server-init.log"
 
@@ -471,7 +471,7 @@ harden_ssh() {
         if [[ -f /etc/os-release ]]; then
             source /etc/os-release
             # Ubuntu 24.04+ 使用 ssh.service 而非 sshd.service
-            if [[ "${VERSION_ID:-}" >= "24.04" ]]; then
+            if [[ "${VERSION_ID:-}" > "24.03" ]]; then
                 ssh_service="ssh"
             fi
         fi
