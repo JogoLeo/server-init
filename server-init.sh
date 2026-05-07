@@ -475,6 +475,17 @@ harden_ssh() {
                 ssh_service="ssh"
             fi
         fi
+
+        # Ubuntu 22.04+ 可能启用 ssh.socket（systemd socket 激活），
+        # 它会忽略 sshd_config 中的 Port 设置，必须先禁用
+        if systemctl is-active --quiet ssh.socket 2>/dev/null; then
+            log_info "检测到 ssh.socket 处于活动状态，正在禁用..."
+            systemctl stop ssh.socket
+            systemctl disable ssh.socket
+            systemctl mask ssh.socket
+            log_success "ssh.socket 已禁用并屏蔽"
+        fi
+
         systemctl restart "$ssh_service"
         log_success "SSH 服务已重启，新端口: $new_port（服务名: $ssh_service）"
     else
