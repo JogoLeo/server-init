@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.2] - 2026-05-07
+
+### Fixed
+
+- **SSH 登录管理**：修复 `>=` 运算符在 bash `[[ ]]` 条件表达式中不合法导致的语法错误（Ubuntu 版本判断）
+- **SSH 登录管理**：修复 Ubuntu 22.04+ 下修改端口后不生效的问题（禁用 `ssh.socket` 以避免 systemd socket 激活覆盖端口配置）
+
 ## [1.0.1] - 2026-05-02
 
 ### Changed

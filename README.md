@@ -93,6 +93,7 @@ bash <(wget -qO- https://gh-proxy.org/https://raw.githubusercontent.com/JogoLeo/
 - 启用密钥登录：`PubkeyAuthentication yes`
 - 启用 root 密钥登录：`PermitRootLogin prohibit-password`
 - Ubuntu 24.04+ 自动使用 `ssh` 服务名（而非 `sshd`）
+- 自动禁用 `ssh.socket`，避免 systemd socket 激活覆盖端口配置
 - 配置修改前自动备份
 - 重启前进行配置语法检查（`sshd -t`）
 - 提示用户保持当前连接并测试新连接

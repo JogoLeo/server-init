@@ -3,11 +3,11 @@ set -euo pipefail
 
 # ============================================================================
 # JO-SI Server Init - Ubuntu 服务器初始配置脚本
-# Version: 1.0.1
+# Version: 1.0.2
 # Repository: https://github.com/JogoLeo/server-init
 # ============================================================================
 
-VERSION="1.0.1"
+VERSION="1.0.2"
 REPO_URL="https://github.com/JogoLeo/server-init"
 LOG_FILE="/var/log/server-init.log"
 
@@ -160,8 +160,8 @@ show_system_info() {
     if [[ -z "${PUBLIC_IP_V4:-}" ]]; then
         echo ""
         echo -ne "  ${GRAY}获取公网 IP 中...${NC}"
-        PUBLIC_IP_V4=$(curl -s --connect-timeout 5 --max-time 10 https://ip.sb 2>/dev/null || echo "未获取到")
-        PUBLIC_IP_V6=$(curl -s --connect-timeout 5 --max-time 10 -6 https://ip.sb 2>/dev/null || echo "未获取到")
+        PUBLIC_IP_V4=$(curl -s --connect-timeout 5 --max-time 10 https://ipv4.ip.sb 2>/dev/null || echo "未获取到")
+        PUBLIC_IP_V6=$(curl -s --connect-timeout 5 --max-time 10 https://ipv6.ip.sb 2>/dev/null || echo "未获取到")
         echo -e "\r                                                          "
     fi
     printf "  ${GRAY}公网 IPv4:${NC}       ${WHITE}%-30s${NC}\n" "$PUBLIC_IP_V4"
@@ -471,10 +471,21 @@ harden_ssh() {
         if [[ -f /etc/os-release ]]; then
             source /etc/os-release
             # Ubuntu 24.04+ 使用 ssh.service 而非 sshd.service
-            if [[ "${VERSION_ID:-}" >= "24.04" ]]; then
+            if [[ "${VERSION_ID:-}" > "24.03" ]]; then
                 ssh_service="ssh"
             fi
         fi
+
+        # Ubuntu 22.04+ 可能启用 ssh.socket（systemd socket 激活），
+        # 它会忽略 sshd_config 中的 Port 设置，必须先禁用
+        if systemctl is-active --quiet ssh.socket 2>/dev/null; then
+            log_info "检测到 ssh.socket 处于活动状态，正在禁用..."
+            systemctl stop ssh.socket
+            systemctl disable ssh.socket
+            systemctl mask ssh.socket
+            log_success "ssh.socket 已禁用并屏蔽"
+        fi
+
         systemctl restart "$ssh_service"
         log_success "SSH 服务已重启，新端口: $new_port（服务名: $ssh_service）"
     else
