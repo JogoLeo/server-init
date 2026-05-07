@@ -88,7 +88,7 @@ bash <(wget -qO- https://gh-proxy.org/https://raw.githubusercontent.com/JogoLeo/
 ### 3. SSH 登录管理
 
 - 自定义 SSH 端口（默认 22，用户可自行输入）
-- 密钥管理：自动生成新密钥对 / 手动输入公钥 / 跳过
+- 密钥管理：自动生成新密钥对 / 手动输入公钥 / 跳过（自动检测重复公钥）
 - 禁用密码登录：`PasswordAuthentication no`
 - 启用密钥登录：`PubkeyAuthentication yes`
 - 启用 root 密钥登录：`PermitRootLogin prohibit-password`
