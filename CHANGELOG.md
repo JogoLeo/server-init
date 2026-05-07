@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.2] - 2026-05-07
+
+### Fixed
+
+- **SSH 登录管理**：修复 `>=` 运算符在 bash `[[ ]]` 条件表达式中不合法导致的语法错误（Ubuntu 版本判断）
+
 ## [1.0.1] - 2026-05-02
 
 ### Changed
