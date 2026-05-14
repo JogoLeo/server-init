@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.2.0] - 2026-05-08
+
+### Changed
+
+- **全功能**：新增 Debian 系统支持（Debian 11+），原仅支持 Ubuntu
+- **APT 换源**：适配 Debian 清华镜像源，自动按系统类型生成对应源配置
+- **SSH 登录管理**：SSH 服务名检测改为自动识别（`systemctl list-unit-files`），兼容 Debian
+- **中文语言包**：Debian 使用 `locales` 包替代 Ubuntu 专属的 `language-pack-zh-hans`
+- **系统检测**：函数重命名为 `detect_os`，`UBUNTU_VERSION`/`UBUNTU_CODENAME` 改为 `OS_VERSION`/`OS_CODENAME`
+
+### Fixed
+
+- 修复所有 `grep -oP` 为 `grep -oE` 或 `grep + sed` 组合，兼容 Debian 环境
+- 修复更新检查和脚本下载未使用 `gh-proxy.org` 代理的问题
+
 ## [1.1.0] - 2026-05-07
 
 ### Fixed
