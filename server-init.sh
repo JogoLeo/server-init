@@ -2,12 +2,12 @@
 set -uo pipefail
 
 # ============================================================================
-# JO-SI Server Init - Ubuntu 服务器初始配置脚本
-# Version: 1.1.0
+# JO-SI Server Init - Debian/Ubuntu 服务器初始配置脚本
+# Version: 1.2.0
 # Repository: https://github.com/JogoLeo/server-init
 # ============================================================================
 
-SCRIPT_VERSION="1.1.0"
+SCRIPT_VERSION="1.2.0"
 REPO_URL="https://github.com/JogoLeo/server-init"
 LOG_FILE="/var/log/server-init.log"
 
@@ -55,19 +55,20 @@ check_network() {
     return 0
 }
 
-detect_ubuntu_version() {
+detect_os() {
     if [[ ! -f /etc/os-release ]]; then
         log_error "无法检测系统版本：/etc/os-release 不存在"
         exit 1
     fi
     source /etc/os-release
-    if [[ "$ID" != "ubuntu" ]]; then
-        log_error "此脚本仅支持 Ubuntu 系统，当前系统: $ID"
+    if [[ "$ID" != "ubuntu" && "$ID" != "debian" ]]; then
+        log_error "此脚本仅支持 Ubuntu 和 Debian 系统，当前系统: $ID"
         exit 1
     fi
-    UBUNTU_VERSION="$VERSION_ID"
-    UBUNTU_CODENAME="$VERSION_CODENAME"
-    log_info "检测到系统: Ubuntu $UBUNTU_VERSION ($UBUNTU_CODENAME)"
+    OS_ID="$ID"
+    OS_VERSION="$VERSION_ID"
+    OS_CODENAME="$VERSION_CODENAME"
+    log_info "检测到系统: $OS_ID $OS_VERSION ($OS_CODENAME)"
 }
 
 break_end() {
@@ -108,9 +109,9 @@ show_logo() {
 EOF
     echo -e "${NC}"
     echo -e "${WHITE}  ╔═══════════════════════════════════════════════════╗${NC}"
-    echo -e "${WHITE}  ║${NC}  ${CYAN}Ubuntu 服务器初始配置脚本${NC}                        ${WHITE}║${NC}"
-    echo -e "${WHITE}  ║${NC}  ${GRAY}Version: $SCRIPT_VERSION${NC}                                   ${WHITE}║${NC}"
-    echo -e "${WHITE}  ║${NC}  ${GRAY}GitHub: $REPO_URL${NC}   ${WHITE}║${NC}"
+    echo -e "${WHITE}  ║${NC}  ${CYAN}Debian/Ubuntu 服务器初始配置脚本${NC}                  ${WHITE}║${NC}"
+    echo -e "${WHITE}  ║${NC}  ${GRAY}Version: $SCRIPT_VERSION${NC}                                 ${WHITE}║${NC}"
+    echo -e "${WHITE}  ║${NC}  ${GRAY}GitHub: $REPO_URL${NC}  ${WHITE}║${NC}"
     echo -e "${WHITE}  ╚═══════════════════════════════════════════════════╝${NC}"
     echo ""
 }
@@ -171,76 +172,91 @@ show_system_info() {
 }
 
 # ============================================================================
-# 1. Ubuntu 换源（清华源）
+# 1. APT 换源（清华源）
 # ============================================================================
 switch_apt_source() {
-    log_info "开始配置 Ubuntu APT 源（清华镜像）..."
+    log_info "开始配置 APT 源（清华镜像）..."
 
     local source_list="/etc/apt/sources.list"
-    local source_list_d="/etc/apt/sources.list.d/ubuntu.sources"
     local backup_file
 
-    # 备份原文件
-    if [[ "$UBUNTU_VERSION" < "24.04" ]]; then
-        if [[ -f "$source_list" ]]; then
-            backup_file="${source_list}.bak.$(date +%Y%m%d%H%M%S)"
-            cp "$source_list" "$backup_file"
-            log_info "已备份原配置到: $backup_file"
-        fi
+    # 备份原 sources.list
+    if [[ -f "$source_list" ]]; then
+        backup_file="${source_list}.bak.$(date +%Y%m%d%H%M%S)"
+        cp "$source_list" "$backup_file"
+        log_info "已备份原配置到: $backup_file"
+    fi
+
+    # ── 根据系统生成对应清华源 ──
+    if [[ "$OS_ID" == "debian" ]]; then
+        # Debian - 传统 One-Line-Style 格式
+        log_info "使用 Debian 清华镜像源"
+        cat > "$source_list" << SOURCES
+# 清华大学开源软件镜像站 - Debian ${OS_CODENAME}
+# https://mirrors.tuna.tsinghua.edu.cn/help/debian/
+
+deb https://mirrors.tuna.tsinghua.edu.cn/debian/ ${OS_CODENAME} main contrib non-free non-free-firmware
+deb https://mirrors.tuna.tsinghua.edu.cn/debian/ ${OS_CODENAME}-updates main contrib non-free non-free-firmware
+deb https://mirrors.tuna.tsinghua.edu.cn/debian/ ${OS_CODENAME}-backports main contrib non-free non-free-firmware
+
+# 安全更新
+deb https://mirrors.tuna.tsinghua.edu.cn/debian-security ${OS_CODENAME}-security main contrib non-free non-free-firmware
+
+# 源码仓库（可选）
+# deb-src https://mirrors.tuna.tsinghua.edu.cn/debian/ ${OS_CODENAME} main contrib non-free non-free-firmware
+# deb-src https://mirrors.tuna.tsinghua.edu.cn/debian/ ${OS_CODENAME}-updates main contrib non-free non-free-firmware
+# deb-src https://mirrors.tuna.tsinghua.edu.cn/debian-security ${OS_CODENAME}-security main contrib non-free non-free-firmware
+SOURCES
+        # 清理 Debian DEB822 格式文件（如果存在）
+        rm -f /etc/apt/sources.list.d/debian.sources 2>/dev/null || true
+
+    elif [[ "$OS_VERSION" < "24.04" ]]; then
+        # Ubuntu < 24.04 - 传统 One-Line-Style 格式
+        log_info "使用传统 One-Line-Style 格式（/etc/apt/sources.list）"
+        cat > "$source_list" << SOURCES
+# 清华大学开源软件镜像站 - Ubuntu ${OS_CODENAME}
+# https://mirrors.tuna.tsinghua.edu.cn/help/ubuntu/
+
+deb https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ ${OS_CODENAME} main restricted universe multiverse
+deb https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ ${OS_CODENAME}-updates main restricted universe multiverse
+deb https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ ${OS_CODENAME}-backports main restricted universe multiverse
+deb https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ ${OS_CODENAME}-security main restricted universe multiverse
+
+# 源码仓库（可选）
+# deb-src https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ ${OS_CODENAME} main restricted universe multiverse
+# deb-src https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ ${OS_CODENAME}-updates main restricted universe multiverse
+# deb-src https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ ${OS_CODENAME}-backports main restricted universe multiverse
+# deb-src https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ ${OS_CODENAME}-security main restricted universe multiverse
+SOURCES
+        rm -f /etc/apt/sources.list.d/*.list 2>/dev/null || true
+
     else
+        # Ubuntu 24.04+ - DEB822 格式
+        local source_list_d="/etc/apt/sources.list.d/ubuntu.sources"
+        # 备份 deb822 文件
         if [[ -f "$source_list_d" ]]; then
             backup_file="${source_list_d}.bak.$(date +%Y%m%d%H%M%S)"
             cp "$source_list_d" "$backup_file"
             log_info "已备份原配置到: $backup_file"
         fi
-    fi
-
-    # 根据版本选择格式
-    if [[ "$UBUNTU_VERSION" < "24.04" ]]; then
-        # Ubuntu 20.04/22.04 - 传统 One-Line-Style 格式
-        log_info "使用传统 One-Line-Style 格式（/etc/apt/sources.list）"
-        cat > "$source_list" << SOURCES
-# 清华大学开源软件镜像站 - Ubuntu ${UBUNTU_CODENAME}
-# https://mirrors.tuna.tsinghua.edu.cn/help/ubuntu/
-
-deb https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ ${UBUNTU_CODENAME} main restricted universe multiverse
-deb https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ ${UBUNTU_CODENAME}-updates main restricted universe multiverse
-deb https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ ${UBUNTU_CODENAME}-backports main restricted universe multiverse
-deb https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ ${UBUNTU_CODENAME}-security main restricted universe multiverse
-
-# 源码仓库（可选）
-# deb-src https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ ${UBUNTU_CODENAME} main restricted universe multiverse
-# deb-src https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ ${UBUNTU_CODENAME}-updates main restricted universe multiverse
-# deb-src https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ ${UBUNTU_CODENAME}-backports main restricted universe multiverse
-# deb-src https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ ${UBUNTU_CODENAME}-security main restricted universe multiverse
-SOURCES
-    else
-        # Ubuntu 24.04+ - DEB822 格式
         log_info "使用 DEB822 格式（/etc/apt/sources.list.d/ubuntu.sources）"
-        # 确保目录存在
         mkdir -p /etc/apt/sources.list.d
         cat > "$source_list_d" << SOURCES
-# 清华大学开源软件镜像站 - Ubuntu ${UBUNTU_CODENAME}
+# 清华大学开源软件镜像站 - Ubuntu ${OS_CODENAME}
 # https://mirrors.tuna.tsinghua.edu.cn/help/ubuntu/
 
 Types: deb
 URIs: https://mirrors.tuna.tsinghua.edu.cn/ubuntu
-Suites: ${UBUNTU_CODENAME} ${UBUNTU_CODENAME}-updates ${UBUNTU_CODENAME}-backports
+Suites: ${OS_CODENAME} ${OS_CODENAME}-updates ${OS_CODENAME}-backports
 Components: main restricted universe multiverse
 Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
 
 Types: deb
 URIs: https://mirrors.tuna.tsinghua.edu.cn/ubuntu
-Suites: ${UBUNTU_CODENAME}-security
+Suites: ${OS_CODENAME}-security
 Components: main restricted universe multiverse
 Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
 SOURCES
-    fi
-
-    # 清除可能存在的旧配置
-    if [[ "$UBUNTU_VERSION" < "24.04" ]]; then
-        rm -f /etc/apt/sources.list.d/*.list 2>/dev/null || true
-    else
         rm -f /etc/apt/sources.list 2>/dev/null || true
     fi
 
@@ -260,9 +276,15 @@ SOURCES
 install_chinese_locale() {
     log_info "开始安装中文语言包和字体..."
 
-    # 安装语言包和字体
-    log_info "安装 language-pack-zh-hans..."
-    apt install -y language-pack-zh-hans 2>&1 | tee -a "$LOG_FILE"
+    # 安装语言包
+    if [[ "$OS_ID" == "ubuntu" ]]; then
+        log_info "安装 language-pack-zh-hans..."
+        apt install -y language-pack-zh-hans 2>&1 | tee -a "$LOG_FILE"
+    else
+        # Debian: locales 已内置，确保 locales 包安装
+        log_info "配置 locales..."
+        apt install -y locales 2>&1 | tee -a "$LOG_FILE"
+    fi
 
     log_info "安装中文字体包..."
     apt install -y fonts-wqy-microhei fonts-wqy-zenhei 2>&1 | tee -a "$LOG_FILE"
@@ -478,18 +500,20 @@ harden_ssh() {
     echo ""
 
     if confirm "是否现在重启 SSH 服务？"; then
-        # 检测 Ubuntu 版本以确定正确的重启命令
+        # 自动检测 SSH 服务名（ssh.service 或 sshd.service）
         local ssh_service="sshd"
-        if [[ -f /etc/os-release ]]; then
-            source /etc/os-release
-            # Ubuntu 24.04+ 使用 ssh.service 而非 sshd.service
-            if [[ "${VERSION_ID:-}" > "24.03" ]]; then
+        if systemctl list-unit-files ssh.service 2>/dev/null | grep -q ssh.service; then
+            ssh_service="ssh"
+        elif systemctl list-unit-files sshd.service 2>/dev/null | grep -q sshd.service; then
+            ssh_service="sshd"
+        # 兼容 Debian：dpkg 查询确认
+        elif dpkg -l openssh-server 2>/dev/null | grep -q "^ii"; then
+            if [[ -f /lib/systemd/system/ssh.service ]]; then
                 ssh_service="ssh"
             fi
         fi
 
-        # Ubuntu 22.04+ 可能启用 ssh.socket（systemd socket 激活），
-        # 它会忽略 sshd_config 中的 Port 设置，必须先禁用
+        # systemd socket 激活会忽略 sshd_config 中的 Port 设置，必须先禁用
         if systemctl is-active --quiet ssh.socket 2>/dev/null; then
             log_info "检测到 ssh.socket 处于活动状态，正在禁用..."
             systemctl stop ssh.socket
@@ -1311,8 +1335,8 @@ rate_limit_shutdown() {
         # 检查是否存在限流配置
         if [[ -f ~/Limiting_Shut_down.sh ]]; then
             local rx_threshold_gb tx_threshold_gb
-            rx_threshold_gb=$(grep -oP 'rx_threshold_gb=\K\d+' ~/Limiting_Shut_down.sh 2>/dev/null || echo "未设置")
-            tx_threshold_gb=$(grep -oP 'tx_threshold_gb=\K\d+' ~/Limiting_Shut_down.sh 2>/dev/null || echo "未设置")
+            rx_threshold_gb=$(grep 'rx_threshold_gb=' ~/Limiting_Shut_down.sh 2>/dev/null | sed 's/.*=//' || echo "未设置")
+            tx_threshold_gb=$(grep 'tx_threshold_gb=' ~/Limiting_Shut_down.sh 2>/dev/null | sed 's/.*=//' || echo "未设置")
             echo -e "  ${GREEN}当前设置的进站限流阈值为: ${YELLOW}${rx_threshold_gb}${GREEN}G${NC}"
             echo -e "  ${GREEN}当前设置的出站限流阈值为: ${YELLOW}${tx_threshold_gb}${GREEN}GB${NC}"
         else
@@ -1620,7 +1644,7 @@ main_menu() {
         echo -e "${WHITE}                      主菜单${NC}"
         echo -e "${CYAN}══════════════════════════════════════════════════════════${NC}"
         echo ""
-        echo -e "  ${WHITE} 1.${NC}  Ubuntu 换源（清华源）"
+        echo -e "  ${WHITE} 1.${NC}  APT 换源（清华源）"
         echo -e "  ${WHITE} 2.${NC}  安装中文语言包和字体包"
         echo -e "  ${WHITE} 3.${NC}  SSH 登录管理"
         echo -e "  ${WHITE} 4.${NC}  安装 Fail2Ban SSH 防护"
@@ -1687,7 +1711,7 @@ main() {
     log_info "脚本启动，版本: $SCRIPT_VERSION"
 
     # 检测系统版本
-    detect_ubuntu_version
+    detect_os
 
     # 检查网络
     check_network || true
