@@ -87,6 +87,29 @@ confirm() {
     esac
 }
 
+# 确保 SSH 特权分离目录存在
+# Ubuntu 22.04 在容器 / 重启后 /run 作为 tmpfs 可能被清空，导致 /run/sshd 缺失，
+# 此时启动 sshd 会报: Missing privilege separation directory: /run/sshd
+_ensure_sshd_privsep_dir() {
+    if [[ ! -d /run/sshd ]]; then
+        log_info "创建 SSH 特权分离目录 /run/sshd ..."
+        mkdir -p /run/sshd
+        chmod 0755 /run/sshd
+    fi
+    # 通过 systemd-tmpfiles 持久化，避免重启后再次缺失
+    # （openssh-server 自带同名配置时跳过，避免重复）
+    if command -v systemd-tmpfiles &>/dev/null && \
+       [[ ! -f /etc/tmpfiles.d/server-init-sshd.conf ]] && \
+       [[ ! -f /usr/lib/tmpfiles.d/openssh-server.conf ]]; then
+        cat > /etc/tmpfiles.d/server-init-sshd.conf << 'TMPEOF'
+# server-init: 持久化 SSH 特权分离目录
+d /run/sshd 0755 root root -
+TMPEOF
+        systemd-tmpfiles --create /etc/tmpfiles.d/server-init-sshd.conf 2>/dev/null || true
+        log_info "已写入 tmpfiles.d 持久化配置"
+    fi
+}
+
 # ============================================================================
 # Logo 和系统信息
 # ============================================================================
@@ -478,6 +501,9 @@ harden_ssh() {
     # 启用 root 用户密钥登录
     sshd_set "PermitRootLogin" "prohibit-password"
 
+    # 确保特权分离目录存在（避免 sshd -t 及启动时报 Missing privilege separation directory）
+    _ensure_sshd_privsep_dir
+
     # 配置语法检查
     log_info "检查 SSH 配置语法..."
     if sshd -t 2>&1 | tee -a "$LOG_FILE"; then
@@ -521,6 +547,9 @@ harden_ssh() {
             systemctl mask ssh.socket
             log_success "ssh.socket 已禁用并屏蔽"
         fi
+
+        # 重启前再次确保特权分离目录存在（防止长时间等待后目录被清空）
+        _ensure_sshd_privsep_dir
 
         systemctl restart "$ssh_service"
         log_success "SSH 服务已重启，新端口: $new_port（服务名: $ssh_service）"
