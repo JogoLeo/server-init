@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.2.1] - 2026-07-20
+
+### Fixed
+
+- **SSH 登录管理**：修复 Ubuntu 22.04（容器 / 重启后 /run 为 tmpfs 被清空）重启 SSH 时报 `Missing privilege separation directory: /run/sshd` 的问题。新增 `_ensure_sshd_privsep_dir` 函数，在语法检查与重启前自动创建 `/run/sshd`，并在系统无 openssh 自带 tmpfiles 配置时写入 `/etc/tmpfiles.d` 持久化配置，避免重启后复发
+
 ## [1.2.0] - 2026-05-08
 
 ### Changed

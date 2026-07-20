@@ -3,11 +3,11 @@ set -uo pipefail
 
 # ============================================================================
 # JO-SI Server Init - Debian/Ubuntu 服务器初始配置脚本
-# Version: 1.2.0
+# Version: 1.2.1
 # Repository: https://github.com/JogoLeo/server-init
 # ============================================================================
 
-SCRIPT_VERSION="1.2.0"
+SCRIPT_VERSION="1.2.1"
 REPO_URL="https://github.com/JogoLeo/server-init"
 LOG_FILE="/var/log/server-init.log"
 
