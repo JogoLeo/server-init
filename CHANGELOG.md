@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.3.0] - 2026-10-22
+
+### Added
+
+- **BBR + FQ 加速**：内嵌 [ylx2016/Linux-NetSpeed](https://github.com/ylx2016/Linux-NetSpeed) 的 `tcpx.sh`（3057 行，md5 `48ce47a1dfdf0aba5299dd7685a31367`），运行时释放到 `/tmp` 执行。支持 BBR / BBRplus / LotServer / 内核更换，解决国内拉取 `raw.githubusercontent.com` 失败导致 BBR 开启不稳定的问题；原「内置快速开启」保留为子菜单第 2 项
+- **Reality 目标域名检测**（菜单 14）：集成 [V2RaySSR/RealityChecker](https://github.com/V2RaySSR/RealityChecker)，自动识别架构、下载 release（gh-proxy 优先，失败回退直连），支持单域名 / 批量 / CSV 三种模式
+- **IP 质量体检**（菜单 15）：调用 [xykt/IPQuality](https://github.com/xykt/IPQuality)（`IP.Check.Place`），检测 IP 原生性、欺诈评分、流媒体解锁、回程路由等
+
+### Fixed
+
+- **SSH 登录管理（Ubuntu 26.04）**：26.04 默认启用 `ssh.socket` socket 激活，端口由 socket 的 `ListenStream` 决定，原「mask ssh.socket + 重启 ssh.service」做法会报错，且 mask 后重启有失联风险。现改为写入 `/etc/systemd/system/ssh.socket.d/10-server-init-port.conf` 覆盖监听端口，`daemon-reload` 后重启 `ssh.socket`；经典服务模式仍直接重启 `ssh.service`/`sshd.service`
+- **SSH 登录管理**：重启后自动用 `ss -tlnp` 校验新端口监听状态，失败时输出 `systemctl status` 诊断信息
+- **SSH 登录管理**：改用 `KbdInteractiveAuthentication no`，并清理旧配置中的 `ChallengeResponseAuthentication`（OpenSSH 10 已废弃）
+
 ## [1.2.1] - 2026-07-20
 
 ### Fixed
