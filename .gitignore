@@ -50,3 +50,6 @@ Desktop.ini
 # Linux
 *~
 .directory
+
+# WorkBuddy / 本地工作数据（含本地记忆与内网信息，不随仓库发布）
+.workbuddy/

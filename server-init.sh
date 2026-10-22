@@ -3,11 +3,11 @@ set -uo pipefail
 
 # ============================================================================
 # JO-SI Server Init - Debian/Ubuntu 服务器初始配置脚本
-# Version: 1.3.0
+# Version: 1.3.1
 # Repository: https://github.com/JogoLeo/server-init
 # ============================================================================
 
-SCRIPT_VERSION="1.3.0"
+SCRIPT_VERSION="1.3.1"
 REPO_URL="https://github.com/JogoLeo/server-init"
 LOG_FILE="/var/log/server-init.log"
 
@@ -1759,6 +1759,51 @@ version_menu() {
 # ============================================================================
 # 14. Reality 目标域名检测（V2RaySSR/RealityChecker）
 # ============================================================================
+
+# ── zip 解压能力探测 ──
+# 为了解压一个 8MB 的 release 包去联网装 unzip 不值得，
+# 系统自带的 python3 / bsdtar / busybox 通常已经够用
+_have_zip_tool() {
+    command -v unzip   >/dev/null 2>&1 && return 0
+    command -v python3 >/dev/null 2>&1 && return 0
+    command -v bsdtar  >/dev/null 2>&1 && return 0
+    command -v busybox >/dev/null 2>&1 && busybox --list 2>/dev/null | grep -qx "unzip" && return 0
+    return 1
+}
+
+_zip_extract() {
+    local zip="$1" dest="$2"
+    mkdir -p "$dest"
+    if command -v unzip >/dev/null 2>&1; then
+        unzip -o "$zip" -d "$dest" >/dev/null 2>&1 && return 0
+    fi
+    if command -v python3 >/dev/null 2>&1; then
+        python3 -m zipfile -e "$zip" "$dest" >/dev/null 2>&1 && return 0
+    fi
+    if command -v bsdtar >/dev/null 2>&1; then
+        bsdtar -xf "$zip" -C "$dest" >/dev/null 2>&1 && return 0
+    fi
+    if command -v busybox >/dev/null 2>&1 && busybox --list 2>/dev/null | grep -qx "unzip"; then
+        busybox unzip -o "$zip" -d "$dest" >/dev/null 2>&1 && return 0
+    fi
+    return 1
+}
+
+# 非交互安装 unzip：
+# 必须关闭 needrestart/debconf 交互并用 timeout 兜底，
+# 否则在 Ubuntu 22.04+ 上会出现「没有任何输出、一直卡住」的情况
+_install_unzip() {
+    export DEBIAN_FRONTEND=noninteractive
+    export NEEDRESTART_MODE=a
+    if command -v apt-get >/dev/null 2>&1; then
+        timeout 180 apt-get install -y unzip && return 0
+        log_info "安装失败，更新软件源索引后重试..."
+        timeout 180 apt-get update -qq || return 1
+        timeout 180 apt-get install -y unzip && return 0
+    fi
+    return 1
+}
+
 reality_checker() {
     log_info "准备 Reality 目标域名检测工具..."
 
@@ -1772,15 +1817,6 @@ reality_checker() {
             ;;
     esac
 
-    if ! command -v unzip >/dev/null 2>&1; then
-        log_info "安装 unzip..."
-        apt-get update -qq >/dev/null 2>&1 || true
-        apt-get install -y unzip >/dev/null 2>&1 || {
-            log_error "unzip 安装失败，请手动执行: apt-get install -y unzip"
-            return 1
-        }
-    fi
-
     local dir="/opt/reality-checker"
     local bin="${dir}/reality-checker"
     mkdir -p "$dir"
@@ -1788,6 +1824,26 @@ reality_checker() {
     local need_download=0
     [[ -x "$bin" ]] || need_download=1
     [[ "${1:-}" == "--update" ]] && need_download=1
+
+    # 下载前先确认解压能力，避免下载完才发现解不开
+    if (( need_download )) && ! _have_zip_tool; then
+        log_warn "未找到可用的解压工具（unzip / python3 / bsdtar 均不可用）"
+        echo -e "  ${YELLOW}请先手动安装 unzip 后重试：${NC}"
+        echo -e "    ${CYAN}apt-get update && apt-get install -y unzip${NC}"
+        echo ""
+        if confirm "是否现在自动安装 unzip？（非交互模式，最长约 3 分钟）"; then
+            log_info "安装 unzip ..."
+            if _install_unzip; then
+                log_success "unzip 安装完成"
+            else
+                log_error "自动安装失败，请手动执行: apt-get update && apt-get install -y unzip"
+                return 1
+            fi
+        else
+            log_info "已取消。安装 unzip 后重新进入本菜单即可"
+            return 1
+        fi
+    fi
 
     if (( need_download )); then
         local pkg="reality-checker-linux-${arch}.zip"
@@ -1804,8 +1860,9 @@ reality_checker() {
             fi
         fi
 
-        if ! unzip -o "${dir}/${pkg}" -d "$dir" >/dev/null 2>&1; then
+        if ! _zip_extract "${dir}/${pkg}" "$dir"; then
             log_error "解压失败: ${dir}/${pkg}"
+            echo -e "${YELLOW}可手动解压后把 reality-checker 放到 ${dir}/ 下${NC}"
             rm -f "${dir}/${pkg}"
             return 1
         fi

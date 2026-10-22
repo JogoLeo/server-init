@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.3.1] - 2026-10-22
+
+### Fixed
+
+- **Reality 目标域名检测**：修复缺少 `unzip` 时执行 `apt-get install` 卡住（无任何输出）的问题。原因为未关闭 needrestart/debconf 交互且输出被重定向。现在改为：
+  - 优先使用系统已有的 `unzip` / `python3` / `bsdtar` / `busybox` 解压，绝大多数机器无需安装任何包
+  - 仅当全部不可用时提示手动安装命令，并询问是否自动安装
+  - 自动安装改为非交互模式（`DEBIAN_FRONTEND=noninteractive` + `NEEDRESTART_MODE=a`）并加 `timeout 180` 兜底
+- **仓库**：`.gitignore` 补充 `.workbuddy/`，避免本地记忆与内网信息被误提交
+
 ## [1.3.0] - 2026-10-22
 
 ### Added

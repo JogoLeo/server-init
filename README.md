@@ -210,6 +210,8 @@ bash <(curl -sSL https://xuanyuan.cloud/docker.sh)
 基于 [V2RaySSR/RealityChecker](https://github.com/V2RaySSR/RealityChecker)，用于挑选适合做 REALITY `dest` 的域名。
 
 - 自动识别架构（x86_64 / arm64），下载对应 release 到 `/opt/reality-checker`
+- 解压优先使用系统已有工具（`unzip` / `python3` / `bsdtar` / `busybox`），**绝大多数机器无需额外安装**
+- 全部工具都缺失时，给出手动安装命令并可选自动安装（非交互模式，带超时保护）
 - 优先走 `gh-proxy.org`，失败自动回退直连 GitHub
 - 支持三种模式：
   - 单域名：`reality-checker check example.com`
